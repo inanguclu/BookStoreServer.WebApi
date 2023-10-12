@@ -9,56 +9,68 @@ namespace BookStoreServer.WebApi.Controllers;
 [ApiController]
 public class BooksController : ControllerBase
 {
-    private static List<Book> books = new()
-    {
 
-    };
+
 
     public BooksController()
     {
-        for(int i = 0; i < 100; i++)
-        {
-            var book =new Book()
-            {
-                Id = i+1,
-                Title = "kitap" + (i+1),
-                Author = "yazar" + (i+1),
-                Summary = "",
-                CoverImageUrl = "https://m.media-amazon.com/images/I/71Qde+ZerdL._AC_UF1000,1000_QL80_.jpg",
-                CreatedAt = DateTime.Now,
-                IsActive = true,
-                ISBN = "34567876543234",
-                Price = 5*(i+1),
-                Quantity = i+1,
-            };
-
-            books.Add(book);
-
-        }
     }
 
 
-
-    [HttpGet("{pageNumber}/{pageSize}")]
-    public IActionResult GetAll(int pageNumber,int pageSize)
+    [HttpPost]
+    public IActionResult GetAll(RequestDto request)
     {
         ResponseDto<List<Book>> response = new();
+        string replaceSearch = request.Search.Replace("İ", "i").ToLower();
+        var newBooks = new List<Book>();
+
+        if (request.CategoryId != null)
+        {
+            newBooks = SeedData.BookCategories
+                        .Where(p => p.CategoryId == request.CategoryId)
+                       .Select(s => s.Book)
+                       .ToList();
+        }
+        else
+        {
+            newBooks = SeedData.Books;
+        }
 
 
-        response.Data= books
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
+        newBooks = newBooks
+            .Where(p => p.Title.ToLower().Contains(replaceSearch) ||
+                        p.Author.ToLower().Contains(replaceSearch) ||
+                        p.ISBN.ToLower().Contains(replaceSearch))
             .ToList();
-        response.PageNumber= pageNumber;
-        response.PageSize= pageSize;
-        response.TotalPageCount = (int)Math.Ceiling(books.Count / (double)pageSize);
-        response.IsFirstPage = pageNumber == 1;
-        response.IsLastPage = pageNumber == response.TotalPageCount;
+        
+
+        response.Data = newBooks
+
+            .Skip((request.PageNumber - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToList();
+        response.PageNumber = request.PageNumber;
+        response.PageSize = request.PageSize;
+        response.TotalPageCount = (int)Math.Ceiling(newBooks.Count / (double)request.PageSize);
+        response.IsFirstPage = request.PageNumber == 1;
+        response.IsLastPage = request.PageNumber == response.TotalPageCount;
 
 
 
 
-        return Ok(books);
+        return Ok(response);
     }
 
+    public static class SeedData
+    {
+        public static List<Book> Books = new ();
+        public static List<Category> Categories = new();
+        public static List<BookCategory> BookCategories = new();
+    }
+
+    
+
+
+
 }
+
